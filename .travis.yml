@@ -1,0 +1,35 @@
+language: php
+
+matrix:
+  fast_finish: true
+  include:
+    - php: nightly
+    - php: 7.0
+    - php: 7.1
+    - php: 7.2
+      env:
+        - TEST_COVERAGE=true
+  allow_failures:
+    - php: nightly
+
+cache:
+  directories:
+  - junitlogs
+
+before_install:
+  - travis_retry composer self-update
+  - if [[ $TEST_COVERAGE != 'true' ]]; then phpenv config-rm xdebug.ini || return 0 ; fi
+
+
+install:
+  - if [[ $TEST_COVERAGE == 'true' && $TRAVIS_BRANCH == 'master' && $TRAVIS_PULL_REQUEST == 'false' ]]; then travis_retry composer require --dev satooshi/php-coveralls ; fi
+  - if [[ $TEST_COVERAGE == 'true' && $TRAVIS_BRANCH == 'master' && $TRAVIS_PULL_REQUEST == 'false' ]]; then travis_retry composer require --dev codeclimate/php-test-reporter:dev-master ; fi
+  - composer install
+
+script:
+  - composer test
+  - if [[ $TRAVIS_PULL_REQUEST != 'false' && -f junitlogs/`git merge-base HEAD master`.log ]]; then php junitdiff.phar compare junitlogs/`git merge-base HEAD master`.log junitlogs/`git rev-parse HEAD`.log; fi
+
+after_script:
+  - if [[ $TEST_COVERAGE == 'true' && $TRAVIS_BRANCH == 'master' && $TRAVIS_PULL_REQUEST == 'false' ]]; then travis_retry vendor/bin/coveralls -v ; fi
+  - if [[ $TEST_COVERAGE == 'true' && $TRAVIS_BRANCH == 'master' && $TRAVIS_PULL_REQUEST == 'false' ]]; then vendor/bin/test-reporter --coverage-report=clover.xml ; fi
